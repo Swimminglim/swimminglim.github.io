@@ -1,0 +1,198 @@
+# EVI
+def calculate_EVI(nir_band_path, red_band_path, blue_band_path):
+    with rasterio.open(nir_band_path) as src:
+        nir = src.read(1).astype(float)
+    with rasterio.open(red_band_path) as src:
+        red = src.read(1).astype(float)
+    with rasterio.open(blue_band_path) as src:
+        blue = src.read(1).astype(float)
+    
+   
+    G = 2.5
+    C1 = 6
+    C2 = 7.5
+    L = 1
+
+   
+    evi = np.where((nir+C1*red-C2*blue+L)!=0, G * ((nir - red) / (nir + C1*red - C2*blue + L)), np.nan)
+    
+    # NAN 값을 -9999로 처리 
+    evi[np.isnan(evi)] = -9999
+
+    
+    with rasterio.open('EVI_output.tif', 'w', driver='GTiff', height=evi.shape[0],
+                       width=evi.shape[1], count=1, dtype='float32',
+                       crs=src.crs, transform=src.transform) as dst:
+        dst.write(evi, 1)
+
+### If there are no values in the image then
+#NAN value 넣기
+def calculate_EVI(nir_band_path, red_band_path, blue_band_path):
+    with rasterio.open(nir_band_path) as src:
+        nir = src.read(1).astype(float)
+    with rasterio.open(red_band_path) as src:
+        red = src.read(1).astype(float)
+    with rasterio.open(blue_band_path) as src:
+        blue = src.read(1).astype(float)
+      
+    G = 2.5
+    C1 = 6
+    C2 = 7.5
+    L = 1
+    
+    evi = np.where((nir+C1*red-C2*blue+L)!=0, G * ((nir - red) / (nir + C1*red - C2*blue + L)), np.nan)
+        
+    with rasterio.open('EVI_output.tif', 'w', driver='GTiff', height=evi.shape[0],
+                       width=evi.shape[1], count=1, dtype='float32',
+                       crs=src.crs, transform=src.transform) as dst:
+        dst.write(evi, 1)
+    print("EVI image saved as EVI_output.tif")
+
+### to calculate EVI
+nir_band_path = "nir band"
+red_band_path = "red band"
+blue_band_path = "blue band"
+
+calculate_EVI(nir_band_path, red_band_path, blue_band_path)
+
+# LSWI 
+def calculate_LSWI(nir_band_path, swir_band_path):
+    
+    with rasterio.open(nir_band_path) as src:
+        nir = src.read(1).astype(float)
+    with rasterio.open(swir_band_path) as src:
+        swir = src.read(1).astype(float)
+    
+    # calculate LSWI where NIR + SWIR != 0, 0인부분에 NaN 값 넣기
+    lswi = np.where((nir+swir)!=0, (nir - swir) / (nir + swir), np.nan)
+    
+    # NAN 값을 -9999로 처리
+    lswi[np.isnan(lswi)] = -9999
+    
+    
+    with rasterio.open('LSWI_output.tif', 'w', driver='GTiff', height=lswi.shape[0],
+                       width=lswi.shape[1], count=1, dtype='float32',
+                       crs=src.crs, transform=src.transform) as dst:
+        dst.write(lswi, 1)
+    print("LSWI image saved as LSWI_output.tif")
+
+### If there are no values in the image then
+#NAN value 넣은거
+def calculate_LSWI(nir_band_path, swir_band_path):
+    
+    with rasterio.open(nir_band_path) as nir_src:
+        nir = nir_src.read(1).astype(float)
+
+    with rasterio.open(swir_band_path) as swir_src:
+        swir = swir_src.read(1).astype(float)
+    
+    
+    lswi = np.where((nir + swir) != 0, (nir - swir) / (nir + swir), np.nan)
+    
+   
+    with rasterio.open('LSWI_output.tif', 'w', driver='GTiff', height=lswi.shape[0],
+                       width=lswi.shape[1], count=1, dtype=rasterio.float32,
+                       crs=nir_src.crs, transform=nir_src.transform, nodata=np.nan) as dst:
+        dst.write(lswi, 1)
+    
+    print("LSWI image saved as LSWI_output.tif")
+
+### to calcuate LSWI
+nir_band_path = "nir band"
+swir_band_path = "swir band"
+
+calculate_LSWI(nir_band_path, swir_band_path)
+
+# VSSI
+def calculate_vssi(green_band_path, red_band_path, nir_band_path):
+    
+    with rasterio.open(green_band_path) as green_src, rasterio.open(red_band_path) as red_src, rasterio.open(nir_band_path) as nir_src:
+        
+        green = green_src.read(1).astype('float64')
+        red = red_src.read(1).astype('float64')
+        nir = nir_src.read(1).astype('float64')
+
+    
+    green[(red == 0) & (nir == 0)] = np.NaN
+    red[(red == 0) & (nir == 0)] = np.NaN
+    nir[(red == 0) & (nir == 0)] = np.NaN
+
+    
+    vssi = 2 * green - 5 * (red + nir)
+    
+    
+    vssi_rescaled = 2.0 * ((vssi - np.nanmin(vssi)) / (np.nanmax(vssi) - np.nanmin(vssi))) - 1
+
+    
+    meta = green_src.meta
+    meta.update(driver='GTiff', dtype=rasterio.float32, nodata=np.NaN)
+
+    
+    with rasterio.open('vssi_rescaled.tif', 'w', **meta) as dst:
+        dst.write(vssi_rescaled.astype(rasterio.float32), 1)
+
+    print("Rescaled VSSI image saved as vssi_rescaled.tif")
+
+    
+    plt.imshow(vssi_rescaled, cmap='RdYlGn', vmin=-1, vmax=1)
+    plt.colorbar()
+    plt.title('Rescaled VSSI')
+    plt.show()
+
+### to calculate VSSI
+calculate_vssi('path_to_green_band',
+               'path_to_red_band',
+               'path_to_nir_band')
+
+# Example to use this functions
+
+blue_band_path = "/Users/imsuyeong/Desktop/2019_test/3/LC08_L1TP_115034_20190622_20200827_02_T1_B2.TIF"
+green_band_path = "/Users/imsuyeong/Desktop/2019_test/3/LC08_L1TP_115034_20190622_20200827_02_T1_B3.TIF"
+red_band_path = "/Users/imsuyeong/Desktop/2019_test/3/LC08_L1TP_115034_20190622_20200827_02_T1_B4.TIF"
+nir_band_path = "/Users/imsuyeong/Desktop/2019_test/3/LC08_L1TP_115034_20190622_20200827_02_T1_B5.TIF"
+swir_band_path = "/Users/imsuyeong/Desktop/2019_test/3/LC08_L1TP_115034_20190622_20200827_02_T1_B6.TIF"
+
+calculate_EVI(nir_band_path, red_band_path, blue_band_path)
+calculate_LSWI(nir_band_path, swir_band_path)
+calculate_vssi(green_band_path, red_band_path, nir_band_path)
+
+# To calculate the average value of specific rice field area 
+# This data has been preprocessed
+import numpy as np
+import rasterio
+
+with rasterio.open('/Users/imsuyeong/Desktop/공구_논 clip/EVI/EVI_1-1_B-1.TIF') as src:
+    evi_data = src.read(1)
+    nodata_value = src.nodata
+
+
+mask = np.ma.masked_invalid(evi_data)
+mask = np.ma.masked_where(mask == nodata_value, mask)
+
+average_evi = np.ma.mean(mask)
+
+print("Average EVI:", average_evi)
+
+import numpy as np
+import rasterio
+import glob
+
+path = '/Users/imsuyeong/Desktop/공구_논 clip/EVI/*.TIF'
+files = glob.glob(path)
+
+average_evis = []
+
+for file in files:
+    with rasterio.open(file) as src:
+        evi_data = src.read(1)
+        nodata_value = src.nodata
+
+        mask = np.ma.masked_invalid(evi_data)
+        mask = np.ma.masked_where(mask == nodata_value, mask)
+
+        average_evi = np.ma.mean(mask)
+        average_evis.append(average_evi)
+
+        print(f"Average EVI for {file}: {average_evi}")
+
+print("All Average EVIs:", average_evis)
